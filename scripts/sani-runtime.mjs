@@ -21,7 +21,7 @@ try {
   saniEnabled = parsed?.agents?.defaults?.sani?.enabled === true;
   workspace = parsed?.agents?.defaults?.workspace ?? workspace;
 } catch {
-  // fall back to defaults shown below
+  // fall back to defaults shown above
 }
 
 const stateLines = [
