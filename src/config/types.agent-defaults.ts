@@ -198,8 +198,16 @@ export type AgentDefaultsConfig = {
   sani?: {
     /** Enable SANI identity + triggers. */
     enabled?: boolean;
-    /** TTL for SANI/Labyrinth modes (minutes). Default: 720 (12 hours). */
+    /** TTL for SANI/Labyrinth modes (minutes). Default: 60. */
     modeTtlMinutes?: number;
+    /** Allow explicit command triggers (e.g. /sani on, /sani off, /labyrinth). Default: true. */
+    commandTriggersEnabled?: boolean;
+    /** Prefix for explicit command triggers. Default: "/". */
+    commandTriggerPrefix?: string;
+    /** Min interval between labyrinth snapshots per session (minutes). Default: 2. */
+    snapshotRateLimitMinutes?: number;
+    /** Min interval between exit events per session (minutes). Default: 1. */
+    exitRateLimitMinutes?: number;
     /** Enable vault sealing for SANI tools (default: false). */
     vaultSealingEnabled?: boolean;
   };
