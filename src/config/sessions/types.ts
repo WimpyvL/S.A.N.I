@@ -61,6 +61,10 @@ export type SessionEntry = {
   labyrinthMode?: boolean;
   /** Timestamp (ms) when SANI/Labyrinth modes last changed. */
   lastModeUpdateAt?: number;
+  /** Timestamp (ms) when the last labyrinth snapshot event was written. */
+  lastLabyrinthSnapshotAt?: number;
+  /** Timestamp (ms) when the last SANI exit event was written. */
+  lastSaniExitEventAt?: number;
   sendPolicy?: "allow" | "deny";
   queueMode?:
     | "steer"

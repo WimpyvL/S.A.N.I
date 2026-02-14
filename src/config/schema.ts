@@ -226,6 +226,10 @@ const FIELD_LABELS: Record<string, string> = {
   "agents.defaults.sani": "SANI",
   "agents.defaults.sani.enabled": "Enable SANI",
   "agents.defaults.sani.modeTtlMinutes": "SANI Mode TTL (min)",
+  "agents.defaults.sani.commandTriggersEnabled": "SANI Command Triggers",
+  "agents.defaults.sani.commandTriggerPrefix": "SANI Command Trigger Prefix",
+  "agents.defaults.sani.snapshotRateLimitMinutes": "Labyrinth Snapshot Rate Limit (min)",
+  "agents.defaults.sani.exitRateLimitMinutes": "SANI Exit Rate Limit (min)",
   "agents.defaults.sani.vaultSealingEnabled": "SANI Vault Sealing",
   "agents.defaults.memorySearch": "Memory Search",
   "agents.defaults.memorySearch.enabled": "Enable Memory Search",
@@ -421,8 +425,7 @@ const FIELD_HELP: Record<string, string> = {
   "gateway.auth.token":
     "Required by default for gateway access (unless using Tailscale Serve identity); required for non-loopback binds.",
   "gateway.auth.password": "Required for Tailscale funnel.",
-  "gateway.controlUi.basePath":
-    "Optional URL prefix where the Control UI is served (e.g. /sani).",
+  "gateway.controlUi.basePath": "Optional URL prefix where the Control UI is served (e.g. /sani).",
   "gateway.controlUi.root":
     "Optional filesystem root for Control UI assets (defaults to dist/control-ui).",
   "gateway.controlUi.allowedOrigins":
@@ -543,7 +546,14 @@ const FIELD_HELP: Record<string, string> = {
   "agents.defaults.sani": "SANI identity + mode handling.",
   "agents.defaults.sani.enabled": "Enable SANI identity + trigger handling (default: false).",
   "agents.defaults.sani.modeTtlMinutes":
-    "TTL for SANI/Labyrinth mode flags before auto-clear (minutes, default: 720).",
+    "TTL for SANI/Labyrinth mode flags before auto-clear (minutes, default: 60).",
+  "agents.defaults.sani.commandTriggersEnabled":
+    "Enable explicit command triggers (for example /sani on, /sani off, /labyrinth).",
+  "agents.defaults.sani.commandTriggerPrefix": "Prefix for explicit command triggers (default: /).",
+  "agents.defaults.sani.snapshotRateLimitMinutes":
+    "Minimum minutes between labyrinth snapshots per session (default: 2).",
+  "agents.defaults.sani.exitRateLimitMinutes":
+    "Minimum minutes between SANI exit events per session (default: 1).",
   "agents.defaults.sani.vaultSealingEnabled":
     "Allow vault_seal tool writes (default: false; can be overridden by SANI_VAULT_SEALING_ENABLED env).",
   "agents.defaults.models": "Configured model catalog (keys are full provider/model IDs).",
@@ -646,8 +656,7 @@ const FIELD_HELP: Record<string, string> = {
   "plugins.installs.*.source": 'Install source ("npm", "archive", or "path").',
   "plugins.installs.*.spec": "Original npm spec used for install (if source is npm).",
   "plugins.installs.*.sourcePath": "Original archive/path used for install (if any).",
-  "plugins.installs.*.installPath":
-    "Resolved install directory (usually ~/.sani/extensions/<id>).",
+  "plugins.installs.*.installPath": "Resolved install directory (usually ~/.sani/extensions/<id>).",
   "plugins.installs.*.version": "Version recorded at install time (if available).",
   "plugins.installs.*.installedAt": "ISO timestamp of last install/update.",
   "agents.list.*.identity.avatar":

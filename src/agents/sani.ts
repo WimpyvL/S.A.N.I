@@ -10,6 +10,13 @@ export type SaniSessionFlags = {
   labyrinthMode: boolean;
 };
 
+export type SaniModeTriggerAction = "sani_on" | "sani_off" | "labyrinth";
+
+type SanitizedSaniLine = {
+  raw: string;
+  normalized: string;
+};
+
 export function resolveSaniEnabled(
   cfg?: SaniConfig,
   env: NodeJS.ProcessEnv = process.env,
@@ -30,7 +37,22 @@ export function resolveSaniVaultSealingEnabled(
   return false;
 }
 
-const DEFAULT_SANI_MODE_TTL_MINUTES = 720;
+const DEFAULT_SANI_MODE_TTL_MINUTES = 60;
+
+const DEFAULT_COMMAND_TRIGGER_PREFIX = "/";
+
+export function resolveSaniModeCommandTriggersEnabled(config?: SaniConfig): boolean {
+  return config?.agents?.defaults?.sani?.commandTriggersEnabled !== false;
+}
+
+export function resolveSaniModeCommandPrefix(config?: SaniConfig): string {
+  const rawPrefix = config?.agents?.defaults?.sani?.commandTriggerPrefix;
+  if (typeof rawPrefix !== "string") {
+    return DEFAULT_COMMAND_TRIGGER_PREFIX;
+  }
+  const normalized = rawPrefix.trim();
+  return normalized.length > 0 ? normalized : DEFAULT_COMMAND_TRIGGER_PREFIX;
+}
 
 function resolveSaniModeTtlMs(config?: SaniConfig): number | null {
   const raw = config?.agents?.defaults?.sani?.modeTtlMinutes;
@@ -85,6 +107,8 @@ export async function readSaniSessionFlags(params: {
       const body = [
         `- Timestamp: ${new Date(now).toISOString()}`,
         `- SessionKey: ${sessionKey}`,
+        `- Event: auto-exit (ttl)`,
+        `- Provenance: readSaniSessionFlags`,
         `- Previous: saniMode=${saniMode ? "on" : "off"}, labyrinthMode=${
           labyrinthMode ? "on" : "off"
         }`,
@@ -95,11 +119,11 @@ export async function readSaniSessionFlags(params: {
       ].join("\n");
       await writeThreadbornEntry({
         workspaceDir,
-        title: "SANI Mode TTL Expired",
+        title: "SANI Auto-Exit (TTL)",
         body,
         tags: ["sani:ttl"],
         sourceSessionId: entry.sessionId ?? sessionKey,
-        sourceTrigger: "TTL_EXPIRE",
+        sourceTrigger: "AUTO_EXIT_TTL",
       });
       return { saniMode: false, labyrinthMode: false };
     }
@@ -114,10 +138,15 @@ const HEY_SANI_LINE = /^\s*hey[\s,]+sani[.!?]*\s*$/i;
 const WHO_AM_I_LINE = /^\s*who\s+am\s+i[.!?]*\s*$/i;
 const EXIT_SANI_LINE = /^\s*exit\s+sani\s+mode[.!?]*\s*$/i;
 const CODE_FENCE_PATTERN = /^\s*(```|~~~)/;
+const FORWARDED_WRAPPER_PATTERN =
+  /^\s*(?:>\s*)?(?:\*\*?)?(?:[-\u2014\s]*)?(?:begin\s+)?forwarded(?:\s+message|\s+from)?\b/i;
 
-function hasStandaloneTriggerLine(text: string, pattern: RegExp): boolean {
+function collectTriggerableLines(text: string): SanitizedSaniLine[] {
   const lines = text.split(/\r?\n/);
+  const result: SanitizedSaniLine[] = [];
   let inCodeBlock = false;
+  let inForwardedWrapper = false;
+
   for (const line of lines) {
     const trimmedStart = line.trimStart();
     if (CODE_FENCE_PATTERN.test(trimmedStart)) {
@@ -127,14 +156,62 @@ function hasStandaloneTriggerLine(text: string, pattern: RegExp): boolean {
     if (inCodeBlock) {
       continue;
     }
-    if (/^>/.test(trimmedStart)) {
+    if (inForwardedWrapper) {
+      if (trimmedStart.length === 0) {
+        inForwardedWrapper = false;
+      }
       continue;
     }
-    if (pattern.test(line)) {
+    if (trimmedStart.startsWith(">")) {
+      continue;
+    }
+    if (FORWARDED_WRAPPER_PATTERN.test(trimmedStart)) {
+      inForwardedWrapper = true;
+      continue;
+    }
+
+    result.push({ raw: line, normalized: trimmedStart.toLowerCase() });
+  }
+
+  return result;
+}
+
+function hasStandaloneTriggerLine(text: string, pattern: RegExp): boolean {
+  const lines = collectTriggerableLines(text);
+  for (const line of lines) {
+    if (pattern.test(line.raw)) {
       return true;
     }
   }
   return false;
+}
+
+export function parseSaniCommandTrigger(
+  text: string,
+  config?: SaniConfig,
+): SaniModeTriggerAction | null {
+  if (!resolveSaniModeCommandTriggersEnabled(config)) {
+    return null;
+  }
+  const prefix = resolveSaniModeCommandPrefix(config);
+  const saniCommand = `${prefix}sani`;
+  const labyrinthCommand = `${prefix}labyrinth`;
+  for (const line of collectTriggerableLines(text)) {
+    if (!line.normalized.startsWith(prefix.toLowerCase())) {
+      continue;
+    }
+    const normalized = line.normalized.replace(/\s+/g, " ").trim();
+    if (normalized === labyrinthCommand) {
+      return "labyrinth";
+    }
+    if (normalized === `${saniCommand} on`) {
+      return "sani_on";
+    }
+    if (normalized === `${saniCommand} off`) {
+      return "sani_off";
+    }
+  }
+  return null;
 }
 
 export function matchesHeySaniTrigger(text: string): boolean {

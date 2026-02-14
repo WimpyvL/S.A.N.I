@@ -33,7 +33,9 @@ const DEFAULT_MODEL_COST: ModelDefinitionConfig["cost"] = {
 };
 const DEFAULT_MODEL_INPUT: ModelDefinitionConfig["input"] = ["text"];
 const DEFAULT_MODEL_MAX_TOKENS = 8192;
-const DEFAULT_SANI_MODE_TTL_MINUTES = 720;
+const DEFAULT_SANI_MODE_TTL_MINUTES = 60;
+const DEFAULT_SANI_SNAPSHOT_RATE_LIMIT_MINUTES = 2;
+const DEFAULT_SANI_EXIT_RATE_LIMIT_MINUTES = 1;
 
 type ModelDefinitionLike = Partial<ModelDefinitionConfig> &
   Pick<ModelDefinitionConfig, "id" | "name">;
@@ -302,7 +304,13 @@ export function applyAgentDefaults(cfg: SANIConfig): SANIConfig {
   const hasSaniTtl =
     typeof defaults?.sani?.modeTtlMinutes === "number" &&
     Number.isFinite(defaults.sani.modeTtlMinutes);
-  if (hasMax && hasSubMax && hasSaniTtl) {
+  const hasSnapshotRateLimit =
+    typeof defaults?.sani?.snapshotRateLimitMinutes === "number" &&
+    Number.isFinite(defaults.sani.snapshotRateLimitMinutes);
+  const hasExitRateLimit =
+    typeof defaults?.sani?.exitRateLimitMinutes === "number" &&
+    Number.isFinite(defaults.sani.exitRateLimitMinutes);
+  if (hasMax && hasSubMax && hasSaniTtl && hasSnapshotRateLimit && hasExitRateLimit) {
     return cfg;
   }
 
@@ -321,6 +329,14 @@ export function applyAgentDefaults(cfg: SANIConfig): SANIConfig {
   const nextSani = defaults?.sani ? { ...defaults.sani } : {};
   if (!hasSaniTtl) {
     nextSani.modeTtlMinutes = DEFAULT_SANI_MODE_TTL_MINUTES;
+    mutated = true;
+  }
+  if (!hasSnapshotRateLimit) {
+    nextSani.snapshotRateLimitMinutes = DEFAULT_SANI_SNAPSHOT_RATE_LIMIT_MINUTES;
+    mutated = true;
+  }
+  if (!hasExitRateLimit) {
+    nextSani.exitRateLimitMinutes = DEFAULT_SANI_EXIT_RATE_LIMIT_MINUTES;
     mutated = true;
   }
 

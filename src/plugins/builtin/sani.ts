@@ -1,4 +1,5 @@
 import type { SANIConfig } from "../../config/config.js";
+import type { SessionEntry } from "../../config/sessions/types.js";
 import type { PluginRecord, PluginRegistry } from "../registry.js";
 import type { SANIPluginApi } from "../types.js";
 import { resolveSessionAgentId, resolveAgentWorkspaceDir } from "../../agents/agent-scope.js";
@@ -8,11 +9,19 @@ import {
   matchesExitSaniTrigger,
   matchesHeySaniTrigger,
   matchesWhoAmITrigger,
+  parseSaniCommandTrigger,
+  type SaniModeTriggerAction,
 } from "../../agents/sani.js";
 import { resolveStorePath } from "../../config/sessions/paths.js";
-import { loadSessionStore, updateSessionModeFlags } from "../../config/sessions/store.js";
+import {
+  loadSessionStore,
+  updateSessionModeFlags,
+  updateSessionStoreEntry,
+} from "../../config/sessions/store.js";
 
 const SANI_PLUGIN_ID = "sani";
+const DEFAULT_SNAPSHOT_RATE_LIMIT_MINUTES = 2;
+const DEFAULT_EXIT_RATE_LIMIT_MINUTES = 1;
 
 function createSaniRecord(params: {
   source: string;
@@ -70,6 +79,54 @@ function buildLabyrinthBody(params: {
   return lines.join("\n");
 }
 
+function resolveRateLimitMs(value: unknown, fallbackMinutes: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value <= 0) {
+      return 0;
+    }
+    return Math.max(1, value) * 60_000;
+  }
+  return fallbackMinutes * 60_000;
+}
+
+function shouldRateLimit(lastAt: number | undefined, limitMs: number, now: number): boolean {
+  if (!limitMs || typeof lastAt !== "number") {
+    return false;
+  }
+  return now - lastAt < limitMs;
+}
+
+function resolveTriggers(
+  content: string,
+  config: SANIConfig,
+): {
+  heySani: boolean;
+  labyrinth: boolean;
+  exitSani: boolean;
+  commandAction: SaniModeTriggerAction | null;
+} {
+  const commandAction = parseSaniCommandTrigger(content, config);
+  return {
+    heySani: commandAction === "sani_on" || matchesHeySaniTrigger(content),
+    labyrinth: commandAction === "labyrinth" || matchesWhoAmITrigger(content),
+    exitSani: commandAction === "sani_off" || matchesExitSaniTrigger(content),
+    commandAction,
+  };
+}
+
+async function recordRateLimitTimestamp(params: {
+  storePath: string;
+  sessionKey: string;
+  field: "lastLabyrinthSnapshotAt" | "lastSaniExitEventAt";
+  now: number;
+}): Promise<SessionEntry | null> {
+  return await updateSessionStoreEntry({
+    storePath: params.storePath,
+    sessionKey: params.sessionKey,
+    update: async () => ({ [params.field]: params.now }),
+  });
+}
+
 export function registerSaniPlugin(params: {
   config: SANIConfig;
   registry: PluginRegistry;
@@ -81,10 +138,8 @@ export function registerSaniPlugin(params: {
 
   api.on("message_received", async (event, ctx) => {
     const content = event.content ?? "";
-    const isHeySani = matchesHeySaniTrigger(content);
-    const isWhoAmI = matchesWhoAmITrigger(content);
-    const isExitSani = matchesExitSaniTrigger(content);
-    if (!isHeySani && !isWhoAmI && !isExitSani) {
+    const trigger = resolveTriggers(content, api.config);
+    if (!trigger.heySani && !trigger.labyrinth && !trigger.exitSani) {
       return;
     }
     const metadata = event.metadata ?? {};
@@ -103,8 +158,9 @@ export function registerSaniPlugin(params: {
       return;
     }
     const sourceSessionId = entry.sessionId ?? sessionKey;
+    const now = Date.now();
 
-    if (isHeySani) {
+    if (trigger.heySani) {
       await updateSessionModeFlags({
         storePath,
         sessionKey,
@@ -112,12 +168,21 @@ export function registerSaniPlugin(params: {
       });
     }
 
-    if (isWhoAmI) {
+    if (trigger.labyrinth) {
       await updateSessionModeFlags({
         storePath,
         sessionKey,
         flags: { labyrinthMode: true },
       });
+
+      const snapshotLimitMs = resolveRateLimitMs(
+        api.config.agents?.defaults?.sani?.snapshotRateLimitMinutes,
+        DEFAULT_SNAPSHOT_RATE_LIMIT_MINUTES,
+      );
+      if (shouldRateLimit(entry.lastLabyrinthSnapshotAt, snapshotLimitMs, now)) {
+        return;
+      }
+
       const workspaceDir = resolveAgentWorkspaceDir(api.config, agentId);
       const sessionFile = entry.sessionFile;
       const snippets = sessionFile ? readRecentSessionSnippets({ sessionFile }) : [];
@@ -126,7 +191,7 @@ export function registerSaniPlugin(params: {
         channelId: ctx.channelId,
         from: event.from,
         modes: {
-          saniMode: entry.saniMode === true || isHeySani,
+          saniMode: entry.saniMode === true || trigger.heySani,
           labyrinthMode: true,
         },
         snippets,
@@ -136,19 +201,32 @@ export function registerSaniPlugin(params: {
         title: "Labyrinth Snapshot",
         body,
         sourceSessionId,
-        sourceTrigger: "WHO_AM_I",
+        sourceTrigger: trigger.commandAction === "labyrinth" ? "LABYRINTH_COMMAND" : "WHO_AM_I",
+      });
+      await recordRateLimitTimestamp({
+        storePath,
+        sessionKey,
+        field: "lastLabyrinthSnapshotAt",
+        now,
       });
     }
 
-    if (isExitSani) {
+    if (trigger.exitSani) {
       await updateSessionModeFlags({
         storePath,
         sessionKey,
         flags: { saniMode: false, labyrinthMode: false },
       });
+      const exitLimitMs = resolveRateLimitMs(
+        api.config.agents?.defaults?.sani?.exitRateLimitMinutes,
+        DEFAULT_EXIT_RATE_LIMIT_MINUTES,
+      );
+      if (shouldRateLimit(entry.lastSaniExitEventAt, exitLimitMs, now)) {
+        return;
+      }
       const workspaceDir = resolveAgentWorkspaceDir(api.config, agentId);
       const body = [
-        `- Timestamp: ${new Date().toISOString()}`,
+        `- Timestamp: ${new Date(now).toISOString()}`,
         `- Channel: ${ctx.channelId ?? "unknown"}`,
         `- User: ${event.from || "unknown"}`,
         `- SessionKey: ${sessionKey}`,
@@ -162,7 +240,13 @@ export function registerSaniPlugin(params: {
         body,
         tags: ["sani:exit"],
         sourceSessionId,
-        sourceTrigger: "EXIT_SANI_MODE",
+        sourceTrigger: trigger.commandAction === "sani_off" ? "SANI_OFF_COMMAND" : "EXIT_SANI_MODE",
+      });
+      await recordRateLimitTimestamp({
+        storePath,
+        sessionKey,
+        field: "lastSaniExitEventAt",
+        now,
       });
     }
   });
