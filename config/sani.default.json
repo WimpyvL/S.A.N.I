@@ -1,0 +1,19 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "~/.sani/workspace",
+      "sani": {
+        "enabled": true,
+        "modeTtlMinutes": 720
+      },
+      "memorySearch": {
+        "store": {
+          "path": "~/.sani/memory/{agentId}.sqlite"
+        }
+      }
+    }
+  },
+  "session": {
+    "store": "~/.sani/agents/{agentId}/sessions/sessions.json"
+  }
+}
