@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -31,9 +31,16 @@ type MemoryMetadata = {
   sealed_from_source_session_id?: string;
   sealed_from_source_trigger?: string;
   sealed_from_memory_type?: string;
+  content_hash: string;
 };
 
 type ParsedFrontMatter = {
+  metadata: Partial<MemoryMetadata>;
+  body: string;
+};
+
+type MemoryArtifact = {
+  path: string;
   metadata: Partial<MemoryMetadata>;
   body: string;
 };
@@ -109,6 +116,7 @@ function buildFrontMatter(metadata: MemoryMetadata): string {
     `source_trigger: ${formatYamlValue(metadata.source_trigger)}`,
     `memory_type: ${formatYamlValue(metadata.memory_type)}`,
     `sealed: ${formatYamlValue(metadata.sealed)}`,
+    `content_hash: ${formatYamlValue(metadata.content_hash)}`,
   ];
   const optionalKeys: Array<keyof MemoryMetadata> = [
     "promoted_from_id",
@@ -182,6 +190,7 @@ function parseFrontMatter(content: string): ParsedFrontMatter {
     "sealed_from_source_session_id",
     "sealed_from_source_trigger",
     "sealed_from_memory_type",
+    "content_hash",
   ];
   for (const line of lines.slice(1, endIndex)) {
     if (!line.trim()) {
@@ -208,6 +217,7 @@ function createMetadata(params: {
   sealed: boolean;
   promotedFrom?: Partial<MemoryMetadata>;
   sealedFrom?: Partial<MemoryMetadata>;
+  contentHash: string;
 }): MemoryMetadata {
   const now = new Date().toISOString();
   return {
@@ -244,7 +254,113 @@ function createMetadata(params: {
       typeof params.sealedFrom?.memory_type === "string"
         ? params.sealedFrom.memory_type
         : undefined,
+    content_hash: params.contentHash,
   };
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf-8").digest("hex");
+}
+
+function buildContent(params: {
+  metadataParams: Omit<Parameters<typeof createMetadata>[0], "contentHash">;
+  bodyLines: string[];
+}): string {
+  const body = `${params.bodyLines.join("\n").replace(/\s+$/u, "")}\n`;
+  const metadata = createMetadata({ ...params.metadataParams, contentHash: sha256(body) });
+  return `${buildFrontMatter(metadata)}${body}`;
+}
+
+function ensureArtifactHash(parsed: ParsedFrontMatter, context: string): void {
+  if (typeof parsed.metadata.content_hash !== "string" || !parsed.metadata.content_hash.trim()) {
+    throw new Error(`${context}: missing content_hash in front-matter.`);
+  }
+  const actual = sha256(parsed.body);
+  if (actual !== parsed.metadata.content_hash) {
+    throw new Error(`${context}: content_hash mismatch (file appears tampered).`);
+  }
+}
+
+function ensureMemoryType(parsed: ParsedFrontMatter, allowed: MemoryType[], context: string): void {
+  const type = parsed.metadata.memory_type;
+  if (typeof type !== "string" || !allowed.includes(type as MemoryType)) {
+    throw new Error(`${context}: memory_type must be one of ${allowed.join(", ")}.`);
+  }
+}
+
+async function listMarkdownFiles(dir: string): Promise<string[]> {
+  let entries: Array<import("node:fs").Dirent> = [];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const files: string[] = [];
+  for (const entry of entries) {
+    const resolved = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listMarkdownFiles(resolved)));
+      continue;
+    }
+    if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+      files.push(resolved);
+    }
+  }
+  return files;
+}
+
+async function loadMemoryArtifact(filePath: string): Promise<MemoryArtifact> {
+  const content = await fs.readFile(filePath, "utf-8");
+  const parsed = parseFrontMatter(content);
+  return { path: filePath, metadata: parsed.metadata, body: parsed.body };
+}
+
+async function buildAncestryIndex(workspaceDir: string): Promise<Map<string, MemoryArtifact>> {
+  const roots = [resolveMemoryDir(workspaceDir, THREADBORN_DIR), resolveMemoryDir(workspaceDir, BRIDGETHREAD_DIR)];
+  const files = (await Promise.all(roots.map((root) => listMarkdownFiles(root)))).flat();
+  const map = new Map<string, MemoryArtifact>();
+  for (const filePath of files) {
+    const artifact = await loadMemoryArtifact(filePath);
+    const id = artifact.metadata.id;
+    if (typeof id === "string" && id.trim()) {
+      map.set(id, artifact);
+    }
+  }
+  return map;
+}
+
+function validateBridgeThreadAncestry(artifact: MemoryArtifact, ancestry: Map<string, MemoryArtifact>): void {
+  const memoryType = artifact.metadata.memory_type;
+  if (memoryType === "ThreadBorn") {
+    return;
+  }
+  if (memoryType !== "BridgeThread") {
+    throw new Error("Bridge promotion source must be ThreadBorn or BridgeThread.");
+  }
+  const seen = new Set<string>();
+  let current: MemoryArtifact | undefined = artifact;
+  for (let depth = 0; depth < 64; depth += 1) {
+    if (!current) {
+      throw new Error("Bridge promotion ancestry missing referenced parent.");
+    }
+    const currentType = current.metadata.memory_type;
+    if (currentType === "ThreadBorn") {
+      return;
+    }
+    if (currentType !== "BridgeThread") {
+      throw new Error("Bridge promotion ancestry includes non-ThreadBorn/BridgeThread type.");
+    }
+    const parentId = current.metadata.promoted_from_id;
+    if (typeof parentId !== "string" || !parentId.trim()) {
+      throw new Error("Bridge promotion ancestry missing promoted_from_id.");
+    }
+    if (seen.has(parentId)) {
+      throw new Error("Bridge promotion ancestry cycle detected.");
+    }
+    seen.add(parentId);
+    current = ancestry.get(parentId);
+  }
+  throw new Error("Bridge promotion ancestry depth exceeded safety limit.");
 }
 
 function resolveVaultDir(workspaceDir: string): string {
@@ -282,9 +398,17 @@ function buildSessionLogFrontMatter(params: {
   resultSummary: string;
   promotionRecommendation: boolean;
   tags?: string[];
+  metadata: MemoryMetadata;
 }): string {
   const lines = [
     FRONT_MATTER_DELIMITER,
+    `id: ${formatYamlValue(params.metadata.id)}`,
+    `created_at: ${formatYamlValue(params.metadata.created_at)}`,
+    `source_session_id: ${formatYamlValue(params.metadata.source_session_id)}`,
+    `source_trigger: ${formatYamlValue(params.metadata.source_trigger)}`,
+    `memory_type: ${formatYamlValue(params.metadata.memory_type)}`,
+    `sealed: ${formatYamlValue(params.metadata.sealed)}`,
+    `content_hash: ${formatYamlValue(params.metadata.content_hash)}`,
     `timestamp: ${formatYamlValue(params.timestamp)}`,
     `user_command: ${formatYamlValue(params.userCommand)}`,
     `tool_invoked: ${formatYamlValue(params.toolInvoked)}`,
@@ -360,14 +484,14 @@ export async function writeThreadbornEntry(params: {
       .map((tag) => tag.trim())
       .filter(Boolean) ?? [];
   const filenameBase = `${timestampSlug()}-${toSafeSlug(title)}`;
-  const metadata = createMetadata({
-    sourceSessionId: params.sourceSessionId,
-    sourceTrigger: params.sourceTrigger,
-    memoryType: "ThreadBorn",
-    sealed: false,
-  });
-  const content = [
-    buildFrontMatter(metadata),
+  const content = buildContent({
+    metadataParams: {
+      sourceSessionId: params.sourceSessionId,
+      sourceTrigger: params.sourceTrigger,
+      memoryType: "ThreadBorn",
+      sealed: false,
+    },
+    bodyLines: [
     `# ${title}`,
     "",
     `- Created: ${new Date().toISOString()}`,
@@ -375,9 +499,8 @@ export async function writeThreadbornEntry(params: {
     "",
     params.body.trim(),
     "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean),
+  });
   const dir = resolveThreadbornDir(params.workspaceDir, params.folder);
   return await writeUniqueFile({ dir, filenameBase, content });
 }
@@ -396,17 +519,23 @@ export async function writeBridgeThreadEntry(params: {
   }
   const sourceContent = await fs.readFile(resolvedSource, "utf-8");
   const parsed = parseFrontMatter(sourceContent);
+  ensureArtifactHash(parsed, "bridge_promote source");
+  ensureMemoryType(parsed, ["ThreadBorn", "BridgeThread"], "bridge_promote source");
+  validateBridgeThreadAncestry(
+    { path: resolvedSource, metadata: parsed.metadata, body: parsed.body },
+    await buildAncestryIndex(params.workspaceDir),
+  );
   const baseTitle = params.title?.trim() || path.basename(resolvedSource);
   const filenameBase = `${timestampSlug()}-${toSafeSlug(baseTitle)}`;
-  const metadata = createMetadata({
-    sourceSessionId: params.sourceSessionId,
-    sourceTrigger: params.sourceTrigger,
-    memoryType: "BridgeThread",
-    sealed: false,
-    promotedFrom: parsed.metadata,
-  });
-  const content = [
-    buildFrontMatter(metadata),
+  const content = buildContent({
+    metadataParams: {
+      sourceSessionId: params.sourceSessionId,
+      sourceTrigger: params.sourceTrigger,
+      memoryType: "BridgeThread",
+      sealed: false,
+      promotedFrom: parsed.metadata,
+    },
+    bodyLines: [
     `# ${baseTitle}`,
     "",
     `- PromotedFrom: ${path.relative(params.workspaceDir, resolvedSource)}`,
@@ -414,7 +543,8 @@ export async function writeBridgeThreadEntry(params: {
     "",
     parsed.body.trim(),
     "",
-  ].join("\n");
+  ],
+  });
   const dir = resolveMemoryDir(params.workspaceDir, BRIDGETHREAD_DIR);
   return await writeUniqueFile({ dir, filenameBase, content });
 }
@@ -431,6 +561,14 @@ export async function writeVaultEntry(params: {
   const resolvedSource = resolveAllowedMemorySourcePath(params.workspaceDir, params.sourcePath);
   const sourceContent = await fs.readFile(resolvedSource, "utf-8");
   const parsed = parseFrontMatter(sourceContent);
+  ensureArtifactHash(parsed, "vault_seal source");
+  ensureMemoryType(parsed, ["ThreadBorn", "BridgeThread"], "vault_seal source");
+  if (parsed.metadata.memory_type === "BridgeThread") {
+    validateBridgeThreadAncestry(
+      { path: resolvedSource, metadata: parsed.metadata, body: parsed.body },
+      await buildAncestryIndex(params.workspaceDir),
+    );
+  }
   const baseTitle = params.title?.trim() || path.basename(resolvedSource);
   const filenameBase = `${timestampSlug()}-${toSafeSlug(baseTitle)}`;
   const dir = resolveMemoryDir(params.workspaceDir, VAULT_DIR);
@@ -456,21 +594,30 @@ export async function writeVaultEntry(params: {
       parsed.body.trim(),
       "",
     ].join("\n");
-    await fs.appendFile(resolvedTarget, appendBlock, { encoding: "utf-8" });
+    const existing = await fs.readFile(resolvedTarget, "utf-8");
+    const existingParsed = parseFrontMatter(existing);
+    ensureArtifactHash(existingParsed, "vault_seal append target");
+    ensureMemoryType(existingParsed, ["Vault"], "vault_seal append target");
+    const newBody = `${existingParsed.body.replace(/\s+$/u, "")}\n${appendBlock}\n`;
+    const mergedMetadata: MemoryMetadata = {
+      ...(existingParsed.metadata as MemoryMetadata),
+      content_hash: sha256(newBody),
+    };
+    await fs.writeFile(resolvedTarget, `${buildFrontMatter(mergedMetadata)}${newBody}`, "utf-8");
     return { path: resolvedTarget, filename: path.basename(resolvedTarget) };
   }
   if (params.targetPath) {
     throw new Error("vault_seal target_file is only valid with append=true.");
   }
-  const metadata = createMetadata({
-    sourceSessionId: params.sourceSessionId,
-    sourceTrigger: params.sourceTrigger,
-    memoryType: "Vault",
-    sealed: true,
-    sealedFrom: parsed.metadata,
-  });
-  const content = [
-    buildFrontMatter(metadata),
+  const content = buildContent({
+    metadataParams: {
+      sourceSessionId: params.sourceSessionId,
+      sourceTrigger: params.sourceTrigger,
+      memoryType: "Vault",
+      sealed: true,
+      sealedFrom: parsed.metadata,
+    },
+    bodyLines: [
     `# ${baseTitle}`,
     "",
     `- SEALED: true`,
@@ -479,7 +626,8 @@ export async function writeVaultEntry(params: {
     "",
     parsed.body.trim(),
     "",
-  ].join("\n");
+  ],
+  });
   return await writeUniqueFile({ dir, filenameBase, content });
 }
 
@@ -492,21 +640,22 @@ export async function writeLabyrinthSnapshot(params: {
 }): Promise<MemoryWriteResult> {
   const title = params.title.trim() || "Labyrinth Snapshot";
   const filenameBase = `${timestampSlug()}-${toSafeSlug(title)}`;
-  const metadata = createMetadata({
-    sourceSessionId: params.sourceSessionId,
-    sourceTrigger: params.sourceTrigger,
-    memoryType: "Labyrinth",
-    sealed: false,
-  });
-  const content = [
-    buildFrontMatter(metadata),
+  const content = buildContent({
+    metadataParams: {
+      sourceSessionId: params.sourceSessionId,
+      sourceTrigger: params.sourceTrigger,
+      memoryType: "Labyrinth",
+      sealed: false,
+    },
+    bodyLines: [
     `# ${title}`,
     "",
     `- Created: ${new Date().toISOString()}`,
     "",
     params.body.trim(),
     "",
-  ].join("\n");
+  ],
+  });
   const dir = resolveMemoryDir(params.workspaceDir, LABYRINTH_DIR);
   return await writeUniqueFile({ dir, filenameBase, content, allowSuffix: false });
 }
@@ -527,15 +676,7 @@ export async function writeSessionLogEntry(params: {
   const recommendation = params.recommend === true;
   const filenameBase = `${timestampSlug(now)}-${toSafeSlug(userCommand)}`;
   const resultSummary = summarizeResult(result);
-  const content = [
-    buildSessionLogFrontMatter({
-      timestamp,
-      userCommand,
-      toolInvoked,
-      resultSummary,
-      promotionRecommendation: recommendation,
-      tags: params.tags,
-    }),
+  const bodyLines = [
     "# Session Log",
     "",
     `- Timestamp: ${timestamp}`,
@@ -553,9 +694,60 @@ export async function writeSessionLogEntry(params: {
     "",
     recommendation ? "- PromotionRecommendation: true" : "- PromotionRecommendation: false",
     "",
+  ];
+  const metadata = createMetadata({
+    sourceSessionId: "session-log",
+    sourceTrigger: toolInvoked,
+    memoryType: "ThreadBorn",
+    sealed: false,
+    contentHash: sha256(`${bodyLines.join("\n").replace(/\s+$/u, "")}\n`),
+  });
+  const content = [
+    buildSessionLogFrontMatter({
+      timestamp,
+      userCommand,
+      toolInvoked,
+      resultSummary,
+      promotionRecommendation: recommendation,
+      tags: params.tags,
+      metadata,
+    }),
+    ...bodyLines,
   ].join("\n");
   const dir = resolveThreadbornSessionsDir(params.workspaceDir, now);
   return await writeUniqueFile({ dir, filenameBase, content });
+}
+
+export async function auditMemoryGovernance(params: {
+  workspaceDir: string;
+}): Promise<{ ok: boolean; anomalies: string[]; scanned: number }> {
+  const roots = [THREADBORN_DIR, BRIDGETHREAD_DIR, LABYRINTH_DIR, VAULT_DIR].map((dir) =>
+    resolveMemoryDir(params.workspaceDir, dir),
+  );
+  const files = (await Promise.all(roots.map((root) => listMarkdownFiles(root)))).flat();
+  const anomalies: string[] = [];
+  const ancestry = await buildAncestryIndex(params.workspaceDir);
+  for (const filePath of files) {
+    const rel = path.relative(params.workspaceDir, filePath).replace(/\\/g, "/");
+    try {
+      const artifact = await loadMemoryArtifact(filePath);
+      ensureArtifactHash({ metadata: artifact.metadata, body: artifact.body }, rel);
+      ensureMemoryType({ metadata: artifact.metadata, body: artifact.body }, ["ThreadBorn", "BridgeThread", "Vault", "Labyrinth"], rel);
+      const type = artifact.metadata.memory_type;
+      if (type === "BridgeThread") {
+        validateBridgeThreadAncestry(artifact, ancestry);
+      }
+      if (type === "Vault") {
+        const sealedFromType = artifact.metadata.sealed_from_memory_type;
+        if (sealedFromType !== "ThreadBorn" && sealedFromType !== "BridgeThread") {
+          throw new Error("Vault entry sealed_from_memory_type must be ThreadBorn or BridgeThread.");
+        }
+      }
+    } catch (error) {
+      anomalies.push(`${rel}: ${(error as Error).message}`);
+    }
+  }
+  return { ok: anomalies.length === 0, anomalies, scanned: files.length };
 }
 
 export const SANI_MEMORY_DIRS = {

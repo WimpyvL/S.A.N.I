@@ -20,6 +20,7 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "vault_query",
     "vault_seal",
     "labyrinth_snapshot",
+    "memory_audit",
   ],
   "group:web": ["web_search", "web_fetch"],
   // Basic workspace/file tools
@@ -63,6 +64,7 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "vault_query",
     "vault_seal",
     "labyrinth_snapshot",
+    "memory_audit",
     "web_search",
     "web_fetch",
     "image",
