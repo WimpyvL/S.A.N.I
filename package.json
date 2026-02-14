@@ -70,7 +70,7 @@
     "mac:package": "bash scripts/package-mac-app.sh",
     "mac:restart": "bash scripts/restart-mac.sh",
     "moltbot:rpc": "node scripts/run-node.mjs agent --mode rpc --json",
-    "sani": "node scripts/run-node.mjs",
+    "sani": "node scripts/sani-runtime.mjs",
     "sani:rpc": "node scripts/run-node.mjs agent --mode rpc --json",
     "plugins:sync": "node --import tsx scripts/sync-plugin-versions.ts",
     "prepack": "pnpm build && pnpm ui:build",
@@ -79,7 +79,7 @@
     "protocol:gen": "node --import tsx scripts/protocol-gen.ts",
     "protocol:gen:swift": "node --import tsx scripts/protocol-gen-swift.ts",
     "release:check": "node --import tsx scripts/release-check.ts",
-    "start": "node scripts/run-node.mjs",
+    "start": "node scripts/sani-runtime.mjs",
     "test": "node scripts/test-parallel.mjs",
     "test:all": "pnpm lint && pnpm build && pnpm test && pnpm test:e2e && pnpm test:live && pnpm test:docker:all",
     "test:coverage": "vitest run --coverage",
@@ -105,7 +105,8 @@
     "tui:dev": "SANI_PROFILE=dev SANI_BOT_PROFILE=dev node scripts/run-node.mjs --dev tui",
     "ui:build": "node scripts/ui.js build",
     "ui:dev": "node scripts/ui.js dev",
-    "ui:install": "node scripts/ui.js install"
+    "ui:install": "node scripts/ui.js install",
+    "sani:doctor": "node --import tsx scripts/sani-doctor.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "0.13.1",
