@@ -1,6 +1,6 @@
-name: OpenClaw
+name: SANI
 options:
-  bundleIdPrefix: ai.openclaw
+  bundleIdPrefix: ai.sani
   deploymentTarget:
     iOS: "18.0"
   xcodeVersion: "16.0"
@@ -10,33 +10,33 @@ settings:
     SWIFT_VERSION: "6.0"
 
 packages:
-  OpenClawKit:
-    path: ../shared/OpenClawKit
+  SANIKit:
+    path: ../shared/SANIKit
   Swabble:
     path: ../../Swabble
 
 schemes:
-  OpenClaw:
+  SANI:
     shared: true
     build:
       targets:
-        OpenClaw: all
+        SANI: all
     test:
       targets:
-        - OpenClawTests
+        - SANITests
 
 targets:
-  OpenClaw:
+  SANI:
     type: application
     platform: iOS
     sources:
       - path: Sources
     dependencies:
-      - package: OpenClawKit
-      - package: OpenClawKit
-        product: OpenClawChatUI
-      - package: OpenClawKit
-        product: OpenClawProtocol
+      - package: SANIKit
+      - package: SANIKit
+        product: SANIChatUI
+      - package: SANIKit
+        product: SANIProtocol
       - package: Swabble
         product: SwabbleKit
       - sdk: AppIntents.framework
@@ -71,15 +71,15 @@ targets:
         CODE_SIGN_IDENTITY: "Apple Development"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: Y5PE65HELJ
-        PRODUCT_BUNDLE_IDENTIFIER: ai.openclaw.ios
-        PROVISIONING_PROFILE_SPECIFIER: "ai.openclaw.ios Development"
+        PRODUCT_BUNDLE_IDENTIFIER: ai.sani.ios
+        PROVISIONING_PROFILE_SPECIFIER: "ai.sani.ios Development"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         ENABLE_APPINTENTS_METADATA: NO
     info:
       path: Sources/Info.plist
       properties:
-        CFBundleDisplayName: OpenClaw
+        CFBundleDisplayName: SANI
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "2026.2.3"
         CFBundleVersion: "20260202"
@@ -88,16 +88,16 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UIBackgroundModes:
           - audio
-        NSLocalNetworkUsageDescription: OpenClaw discovers and connects to your OpenClaw gateway on the local network.
+        NSLocalNetworkUsageDescription: SANI discovers and connects to your SANI gateway on the local network.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
         NSBonjourServices:
-          - _openclaw-gw._tcp
-        NSCameraUsageDescription: OpenClaw can capture photos or short video clips when requested via the gateway.
-        NSLocationWhenInUseUsageDescription: OpenClaw uses your location when you allow location sharing.
-        NSLocationAlwaysAndWhenInUseUsageDescription: OpenClaw can share your location in the background when you enable Always.
-        NSMicrophoneUsageDescription: OpenClaw needs microphone access for voice wake.
-        NSSpeechRecognitionUsageDescription: OpenClaw uses on-device speech recognition for voice wake.
+          - _sani-gw._tcp
+        NSCameraUsageDescription: SANI can capture photos or short video clips when requested via the gateway.
+        NSLocationWhenInUseUsageDescription: SANI uses your location when you allow location sharing.
+        NSLocationAlwaysAndWhenInUseUsageDescription: SANI can share your location in the background when you enable Always.
+        NSMicrophoneUsageDescription: SANI needs microphone access for voice wake.
+        NSSpeechRecognitionUsageDescription: SANI uses on-device speech recognition for voice wake.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -109,26 +109,26 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
 
-  OpenClawTests:
+  SANITests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests
     dependencies:
-      - target: OpenClaw
+      - target: SANI
       - package: Swabble
         product: SwabbleKit
       - sdk: AppIntents.framework
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ai.openclaw.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: ai.sani.ios.tests
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/OpenClaw.app/OpenClaw"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/SANI.app/SANI"
         BUNDLE_LOADER: "$(TEST_HOST)"
     info:
       path: Tests/Info.plist
       properties:
-        CFBundleDisplayName: OpenClawTests
+        CFBundleDisplayName: SANITests
         CFBundleShortVersionString: "2026.2.3"
         CFBundleVersion: "20260202"

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_URL="${OPENCLAW_INSTALL_URL:-https://openclaw.bot/install.sh}"
-DEFAULT_PACKAGE="openclaw"
-PACKAGE_NAME="${OPENCLAW_INSTALL_PACKAGE:-$DEFAULT_PACKAGE}"
+INSTALL_URL="${SANI_INSTALL_URL:-https://sani.bot/install.sh}"
+DEFAULT_PACKAGE="sani"
+PACKAGE_NAME="${SANI_INSTALL_PACKAGE:-$DEFAULT_PACKAGE}"
 
 echo "==> Pre-flight: ensure git absent"
 if command -v git >/dev/null; then
@@ -20,7 +20,7 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 echo "==> Verify git installed"
 command -v git >/dev/null
 
-EXPECTED_VERSION="${OPENCLAW_INSTALL_EXPECT_VERSION:-}"
+EXPECTED_VERSION="${SANI_INSTALL_EXPECT_VERSION:-}"
 if [[ -n "$EXPECTED_VERSION" ]]; then
   LATEST_VERSION="$EXPECTED_VERSION"
 else
