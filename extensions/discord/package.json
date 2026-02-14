@@ -1,0 +1,14 @@
+{
+  "name": "@sani/discord",
+  "version": "2026.2.2",
+  "description": "SANI Discord channel plugin",
+  "type": "module",
+  "devDependencies": {
+    "sani": "workspace:*"
+  },
+  "sani": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

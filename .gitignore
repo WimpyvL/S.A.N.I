@@ -1,0 +1,75 @@
+# SANI Project Ignored Files
+
+# Node & Package Managers
+node_modules
+**/node_modules/
+.pnpm-store
+pnpm-lock.yaml
+bun.lock
+bun.lockb
+*.bun-build
+**/*.bun-build
+
+# Build Artifacts
+dist/
+**/dist/
+bin/
+coverage/
+.bundle.hash
+ui/playwright-report/
+ui/test-results/
+ui/src/ui/__screenshots__/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+IDENTITY.md
+USER.md
+
+# OS / IDE / Common
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tgz
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# SANI Local State & Temporary
+.sani/
+.local/
+.serena/
+*.agent-local.ts
+*.session.json
+**/ModuleCache/
+.worktrees/
+
+# App Specific Build Paths
+apps/macos/.build/
+apps/macos/.build-local/
+apps/macos/.swiftpm/
+apps/shared/SaniKit/.build/
+apps/shared/SaniKit/.swiftpm/
+apps/ios/*.xcodeproj/
+apps/ios/*.xcworkspace/
+apps/ios/.swiftpm/
+apps/ios/*.xcfilelist
+apps/ios/*.ipa
+apps/ios/*.dSYM.zip
+apps/ios/*.mobileprovision
+
+# Vendor build artifacts
+vendor/
+src/canvas-host/a2ui/*.bundle.js
+src/canvas-host/a2ui/*.map
+
+# fastlane (iOS)
+apps/ios/fastlane/report.xml
+apps/ios/fastlane/Preview.html
+apps/ios/fastlane/screenshots/
+apps/ios/fastlane/test_output/
+apps/ios/fastlane/logs/
+apps/ios/fastlane/.env

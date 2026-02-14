@@ -1,0 +1,477 @@
+import { describe, expect, test } from "vitest";
+import type { SANIConfig } from "../config/config.js";
+import { buildAgentSystemPrompt } from "../agents/system-prompt.js";
+import { resolveAgentRoute } from "./resolve-route.js";
+
+describe("resolveAgentRoute", () => {
+  test("defaults to main/default when no bindings exist", () => {
+    const cfg: SANIConfig = {};
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: null,
+      peer: { kind: "dm", id: "+15551234567" },
+    });
+    expect(route.agentId).toBe("main");
+    expect(route.accountId).toBe("default");
+    expect(route.sessionKey).toBe("agent:main:main");
+    expect(route.matchedBy).toBe("default");
+  });
+
+  test("sani tag override routes to tagged agent when configured", () => {
+    const cfg: SANIConfig = {
+      agents: {
+        list: [{ id: "sani-core", default: true }, { id: "sani-work" }, { id: "sani-home" }],
+      },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: null,
+      inboundText: "Need this now #core thanks",
+      peer: { kind: "dm", id: "+15551234567" },
+    });
+    expect(route.agentId).toBe("sani-core");
+    expect(route.matchedBy).toBe("sani.tag");
+  });
+
+  test("sani channel routing uses configured agent defaults", () => {
+    const cfg: SANIConfig = {
+      agents: {
+        list: [{ id: "sani-core", default: true }, { id: "sani-work" }, { id: "sani-home" }],
+      },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "telegram",
+      accountId: null,
+      peer: { kind: "dm", id: "123" },
+    });
+    expect(route.agentId).toBe("sani-core");
+    expect(route.matchedBy).toBe("sani.channel");
+  });
+
+  test("sani channel routing sets ACTIVE STATE identity (smoke)", () => {
+    const cfg: SANIConfig = {
+      agents: {
+        list: [{ id: "sani-core", default: true }, { id: "sani-work" }, { id: "sani-home" }],
+      },
+    };
+    const cases = [
+      { channel: "telegram", expected: "sani-core" },
+      { channel: "slack", expected: "sani-work" },
+      { channel: "whatsapp", expected: "sani-home" },
+    ];
+
+    for (const entry of cases) {
+      const route = resolveAgentRoute({
+        cfg,
+        channel: entry.channel,
+        accountId: null,
+        peer: { kind: "dm", id: "test" },
+      });
+      expect(route.agentId).toBe(entry.expected);
+      expect(route.matchedBy).toBe("sani.channel");
+
+      const prompt = buildAgentSystemPrompt({
+        workspaceDir: "/tmp/sani-smoke",
+        saniEnabled: true,
+        runtimeInfo: { agentId: route.agentId },
+      });
+      expect(prompt).toContain("## ACTIVE STATE");
+      expect(prompt).toContain(`agentId: ${entry.expected}`);
+    }
+  });
+
+  test("dmScope=per-peer isolates DM sessions by sender id", () => {
+    const cfg: SANIConfig = {
+      session: { dmScope: "per-peer" },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: null,
+      peer: { kind: "dm", id: "+15551234567" },
+    });
+    expect(route.sessionKey).toBe("agent:main:dm:+15551234567");
+  });
+
+  test("dmScope=per-channel-peer isolates DM sessions per channel and sender", () => {
+    const cfg: SANIConfig = {
+      session: { dmScope: "per-channel-peer" },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: null,
+      peer: { kind: "dm", id: "+15551234567" },
+    });
+    expect(route.sessionKey).toBe("agent:main:whatsapp:dm:+15551234567");
+  });
+
+  test("identityLinks collapses per-peer DM sessions across providers", () => {
+    const cfg: SANIConfig = {
+      session: {
+        dmScope: "per-peer",
+        identityLinks: {
+          alice: ["telegram:111111111", "discord:222222222222222222"],
+        },
+      },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "telegram",
+      accountId: null,
+      peer: { kind: "dm", id: "111111111" },
+    });
+    expect(route.sessionKey).toBe("agent:main:dm:alice");
+  });
+
+  test("identityLinks applies to per-channel-peer DM sessions", () => {
+    const cfg: SANIConfig = {
+      session: {
+        dmScope: "per-channel-peer",
+        identityLinks: {
+          alice: ["telegram:111111111", "discord:222222222222222222"],
+        },
+      },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      accountId: null,
+      peer: { kind: "dm", id: "222222222222222222" },
+    });
+    expect(route.sessionKey).toBe("agent:main:discord:dm:alice");
+  });
+
+  test("peer binding wins over account binding", () => {
+    const cfg: SANIConfig = {
+      bindings: [
+        {
+          agentId: "a",
+          match: {
+            channel: "whatsapp",
+            accountId: "biz",
+            peer: { kind: "dm", id: "+1000" },
+          },
+        },
+        {
+          agentId: "b",
+          match: { channel: "whatsapp", accountId: "biz" },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: "biz",
+      peer: { kind: "dm", id: "+1000" },
+    });
+    expect(route.agentId).toBe("a");
+    expect(route.sessionKey).toBe("agent:a:main");
+    expect(route.matchedBy).toBe("binding.peer");
+  });
+
+  test("discord channel peer binding wins over guild binding", () => {
+    const cfg: SANIConfig = {
+      bindings: [
+        {
+          agentId: "chan",
+          match: {
+            channel: "discord",
+            accountId: "default",
+            peer: { kind: "channel", id: "c1" },
+          },
+        },
+        {
+          agentId: "guild",
+          match: {
+            channel: "discord",
+            accountId: "default",
+            guildId: "g1",
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      accountId: "default",
+      peer: { kind: "channel", id: "c1" },
+      guildId: "g1",
+    });
+    expect(route.agentId).toBe("chan");
+    expect(route.sessionKey).toBe("agent:chan:discord:channel:c1");
+    expect(route.matchedBy).toBe("binding.peer");
+  });
+
+  test("guild binding wins over account binding when peer not bound", () => {
+    const cfg: SANIConfig = {
+      bindings: [
+        {
+          agentId: "guild",
+          match: {
+            channel: "discord",
+            accountId: "default",
+            guildId: "g1",
+          },
+        },
+        {
+          agentId: "acct",
+          match: { channel: "discord", accountId: "default" },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      accountId: "default",
+      peer: { kind: "channel", id: "c1" },
+      guildId: "g1",
+    });
+    expect(route.agentId).toBe("guild");
+    expect(route.matchedBy).toBe("binding.guild");
+  });
+
+  test("missing accountId in binding matches default account only", () => {
+    const cfg: SANIConfig = {
+      bindings: [{ agentId: "defaultAcct", match: { channel: "whatsapp" } }],
+    };
+
+    const defaultRoute = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: undefined,
+      peer: { kind: "dm", id: "+1000" },
+    });
+    expect(defaultRoute.agentId).toBe("defaultacct");
+    expect(defaultRoute.matchedBy).toBe("binding.account");
+
+    const otherRoute = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: "biz",
+      peer: { kind: "dm", id: "+1000" },
+    });
+    expect(otherRoute.agentId).toBe("main");
+  });
+
+  test("accountId=* matches any account as a channel fallback", () => {
+    const cfg: SANIConfig = {
+      bindings: [
+        {
+          agentId: "any",
+          match: { channel: "whatsapp", accountId: "*" },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: "biz",
+      peer: { kind: "dm", id: "+1000" },
+    });
+    expect(route.agentId).toBe("any");
+    expect(route.matchedBy).toBe("binding.channel");
+  });
+
+  test("defaultAgentId is used when no binding matches", () => {
+    const cfg: SANIConfig = {
+      agents: {
+        list: [{ id: "home", default: true, workspace: "~/sani-home" }],
+      },
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "whatsapp",
+      accountId: "biz",
+      peer: { kind: "dm", id: "+1000" },
+    });
+    expect(route.agentId).toBe("home");
+    expect(route.sessionKey).toBe("agent:home:main");
+  });
+});
+
+test("dmScope=per-account-channel-peer isolates DM sessions per account, channel and sender", () => {
+  const cfg: SANIConfig = {
+    session: { dmScope: "per-account-channel-peer" },
+  };
+  const route = resolveAgentRoute({
+    cfg,
+    channel: "telegram",
+    accountId: "tasks",
+    peer: { kind: "dm", id: "7550356539" },
+  });
+  expect(route.sessionKey).toBe("agent:main:telegram:tasks:dm:7550356539");
+});
+
+test("dmScope=per-account-channel-peer uses default accountId when not provided", () => {
+  const cfg: SANIConfig = {
+    session: { dmScope: "per-account-channel-peer" },
+  };
+  const route = resolveAgentRoute({
+    cfg,
+    channel: "telegram",
+    accountId: null,
+    peer: { kind: "dm", id: "7550356539" },
+  });
+  expect(route.sessionKey).toBe("agent:main:telegram:default:dm:7550356539");
+});
+
+describe("parentPeer binding inheritance (thread support)", () => {
+  test("thread inherits binding from parent channel when no direct match", () => {
+    const cfg: MoltbotConfig = {
+      bindings: [
+        {
+          agentId: "adecco",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "parent-channel-123" },
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      peer: { kind: "channel", id: "thread-456" },
+      parentPeer: { kind: "channel", id: "parent-channel-123" },
+    });
+    expect(route.agentId).toBe("adecco");
+    expect(route.matchedBy).toBe("binding.peer.parent");
+  });
+
+  test("direct peer binding wins over parent peer binding", () => {
+    const cfg: MoltbotConfig = {
+      bindings: [
+        {
+          agentId: "thread-agent",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "thread-456" },
+          },
+        },
+        {
+          agentId: "parent-agent",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "parent-channel-123" },
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      peer: { kind: "channel", id: "thread-456" },
+      parentPeer: { kind: "channel", id: "parent-channel-123" },
+    });
+    expect(route.agentId).toBe("thread-agent");
+    expect(route.matchedBy).toBe("binding.peer");
+  });
+
+  test("parent peer binding wins over guild binding", () => {
+    const cfg: MoltbotConfig = {
+      bindings: [
+        {
+          agentId: "parent-agent",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "parent-channel-123" },
+          },
+        },
+        {
+          agentId: "guild-agent",
+          match: {
+            channel: "discord",
+            guildId: "guild-789",
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      peer: { kind: "channel", id: "thread-456" },
+      parentPeer: { kind: "channel", id: "parent-channel-123" },
+      guildId: "guild-789",
+    });
+    expect(route.agentId).toBe("parent-agent");
+    expect(route.matchedBy).toBe("binding.peer.parent");
+  });
+
+  test("falls back to guild binding when no parent peer match", () => {
+    const cfg: MoltbotConfig = {
+      bindings: [
+        {
+          agentId: "other-parent-agent",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "other-parent-999" },
+          },
+        },
+        {
+          agentId: "guild-agent",
+          match: {
+            channel: "discord",
+            guildId: "guild-789",
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      peer: { kind: "channel", id: "thread-456" },
+      parentPeer: { kind: "channel", id: "parent-channel-123" },
+      guildId: "guild-789",
+    });
+    expect(route.agentId).toBe("guild-agent");
+    expect(route.matchedBy).toBe("binding.guild");
+  });
+
+  test("parentPeer with empty id is ignored", () => {
+    const cfg: MoltbotConfig = {
+      bindings: [
+        {
+          agentId: "parent-agent",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "parent-channel-123" },
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      peer: { kind: "channel", id: "thread-456" },
+      parentPeer: { kind: "channel", id: "" },
+    });
+    expect(route.agentId).toBe("main");
+    expect(route.matchedBy).toBe("default");
+  });
+
+  test("null parentPeer is handled gracefully", () => {
+    const cfg: MoltbotConfig = {
+      bindings: [
+        {
+          agentId: "parent-agent",
+          match: {
+            channel: "discord",
+            peer: { kind: "channel", id: "parent-channel-123" },
+          },
+        },
+      ],
+    };
+    const route = resolveAgentRoute({
+      cfg,
+      channel: "discord",
+      peer: { kind: "channel", id: "thread-456" },
+      parentPeer: null,
+    });
+    expect(route.agentId).toBe("main");
+    expect(route.matchedBy).toBe("default");
+  });
+});

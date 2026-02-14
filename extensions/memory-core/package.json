@@ -1,0 +1,17 @@
+{
+  "name": "@sani/memory-core",
+  "version": "2026.2.2",
+  "description": "SANI core memory search plugin",
+  "type": "module",
+  "devDependencies": {
+    "sani": "workspace:*"
+  },
+  "peerDependencies": {
+    "sani": ">=2026.1.26"
+  },
+  "sani": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

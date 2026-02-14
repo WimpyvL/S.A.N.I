@@ -1,0 +1,14 @@
+{
+  "name": "@sani/google-gemini-cli-auth",
+  "version": "2026.2.2",
+  "description": "SANI Gemini CLI OAuth provider plugin",
+  "type": "module",
+  "devDependencies": {
+    "sani": "workspace:*"
+  },
+  "sani": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
