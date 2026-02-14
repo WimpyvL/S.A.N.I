@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createVaultQueryTool } from "./memory-governance-tool.js";
+import { createMemoryAuditTool, createVaultQueryTool } from "./memory-governance-tool.js";
 import { createSessionLogEntryTool } from "./session-log-entry.js";
 
 describe("vault query tool (smoke)", () => {
@@ -100,5 +100,42 @@ describe("session log entry tool (smoke)", () => {
     expect(content).toContain("tags:");
     expect(content).toContain("Summarize my recent build output.");
     expect(content).toContain("Build completed successfully with 2 warnings.");
+  });
+});
+
+
+describe("memory audit tool (smoke)", () => {
+  it("reports anomalies when a memory file is tampered", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "sani-memory-audit-"));
+    const threadbornDir = path.join(workspaceDir, "memory", "ThreadBorn");
+    await fs.mkdir(threadbornDir, { recursive: true });
+    const filePath = path.join(threadbornDir, "entry.md");
+    await fs.writeFile(
+      filePath,
+      [
+        "---",
+        'id: "id-1"',
+        'created_at: "2024-01-01T00:00:00.000Z"',
+        'source_session_id: "s1"',
+        'source_trigger: "TEST"',
+        'memory_type: "ThreadBorn"',
+        "sealed: false",
+        'content_hash: "aaaaaaaa"',
+        "---",
+        "",
+        "# Entry",
+      ].join("\n"),
+      "utf-8",
+    );
+
+    const tool = createMemoryAuditTool({ workspaceDir });
+    if (!tool) {
+      throw new Error("memory_audit tool not available");
+    }
+
+    const result = await tool.execute("call", {});
+    const details = result.details as { ok: boolean; anomalies: string[] };
+    expect(details.ok).toBe(false);
+    expect(details.anomalies.some((item) => item.includes("content_hash mismatch"))).toBe(true);
   });
 });

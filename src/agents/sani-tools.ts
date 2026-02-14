@@ -12,6 +12,7 @@ import { createImageTool } from "./tools/image-tool.js";
 import {
   createBridgePromoteTool,
   createLabyrinthSnapshotTool,
+  createMemoryAuditTool,
   createThreadbornWriteTool,
   createVaultQueryTool,
   createVaultSealTool,
@@ -170,6 +171,7 @@ export function createSaniTools(options?: {
           sessionKey: options?.agentSessionKey,
         }),
         createLabyrinthSnapshotTool({ workspaceDir: options.workspaceDir }),
+        createMemoryAuditTool({ workspaceDir: options.workspaceDir }),
         createSessionLogEntryTool({ workspaceDir: options.workspaceDir }),
       ].filter((tool): tool is AnyAgentTool => Boolean(tool))
       : []),

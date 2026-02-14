@@ -98,6 +98,7 @@ const DEFAULT_SUBAGENT_TOOL_DENY = [
   "vault_query",
   "vault_seal",
   "labyrinth_snapshot",
+  "memory_audit",
 ];
 
 export function resolveSubagentToolPolicy(cfg?: SaniConfig): SandboxToolPolicy {

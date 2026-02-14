@@ -8,6 +8,7 @@ import { resolveStorePath } from "../../config/sessions/paths.js";
 import { loadSessionStore } from "../../config/sessions/store.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
 import {
+  auditMemoryGovernance,
   resolveAllowedMemorySourcePath,
   writeBridgeThreadEntry,
   writeLabyrinthSnapshot,
@@ -17,6 +18,10 @@ import {
 import { resolveSaniVaultSealingEnabled } from "../sani.js";
 import { stringEnum } from "../schema/typebox.js";
 import { jsonResult, readStringArrayParam, readStringParam } from "./common.js";
+
+
+const MEMORY_SOURCE_PATTERN = "^memory\\/(ThreadBorn|BridgeThread|Labyrinth)(\\/.*)?$";
+const MEMORY_VAULT_PATTERN = "^memory\\/Vault(\\/.*)?$";
 
 const ThreadbornWriteSchema = Type.Object({
   title: Type.String(),
@@ -30,6 +35,7 @@ const ThreadbornWriteSchema = Type.Object({
 const BridgePromoteSchema = Type.Object({
   threadborn_file: Type.String({
     description: "Relative path under memory/ThreadBorn, memory/BridgeThread, or memory/Labyrinth.",
+    pattern: MEMORY_SOURCE_PATTERN,
   }),
   title: Type.Optional(Type.String()),
   source_session_id: Type.String(),
@@ -39,12 +45,13 @@ const BridgePromoteSchema = Type.Object({
 const VaultSealSchema = Type.Object({
   source_file: Type.String({
     description: "Relative path under memory/ThreadBorn, memory/BridgeThread, or memory/Labyrinth.",
+    pattern: MEMORY_SOURCE_PATTERN,
   }),
   title: Type.Optional(Type.String()),
   source_session_id: Type.String(),
   source_trigger: Type.String(),
   append: Type.Optional(Type.Boolean()),
-  target_file: Type.Optional(Type.String()),
+  target_file: Type.Optional(Type.String({ pattern: MEMORY_VAULT_PATTERN })),
 });
 
 const LabyrinthSnapshotSchema = Type.Object({
@@ -60,6 +67,8 @@ const VaultQuerySchema = Type.Object({
   scope: stringEnum(VAULT_QUERY_SCOPES),
   tags: Type.Optional(Type.Array(Type.String())),
 });
+
+const MemoryAuditSchema = Type.Object({});
 
 function requireWorkspaceDir(workspaceDir?: string): string {
   if (!workspaceDir?.trim()) {
@@ -458,6 +467,24 @@ export function createVaultSealTool(options: {
         path: formatPathOutput(workspaceDir, result.path),
         filename: result.filename,
       });
+    },
+  };
+}
+
+export function createMemoryAuditTool(options: { workspaceDir?: string }): AnyAgentTool | null {
+  if (!options.workspaceDir) {
+    return null;
+  }
+  return {
+    label: "Memory Audit",
+    name: "memory_audit",
+    description:
+      "Scan memory roots, verify front-matter schema/content hashes/ancestry links, and report anomalies.",
+    parameters: MemoryAuditSchema,
+    execute: async () => {
+      const workspaceDir = requireWorkspaceDir(options.workspaceDir);
+      const result = await auditMemoryGovernance({ workspaceDir });
+      return jsonResult(result);
     },
   };
 }
