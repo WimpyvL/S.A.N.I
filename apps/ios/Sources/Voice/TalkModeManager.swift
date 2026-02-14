@@ -1,6 +1,6 @@
 import AVFAudio
-import OpenClawKit
-import OpenClawProtocol
+import SANIKit
+import SANIProtocol
 import Foundation
 import Observation
 import OSLog

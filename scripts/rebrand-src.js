@@ -18,26 +18,26 @@ function walk(dir) {
             let changed = false;
 
             // Env vars
-            if (content.includes('OPENCLAW_')) {
-                content = content.replace(/OPENCLAW_/g, 'SANI_');
+            if (content.includes('SANI_')) {
+                content = content.replace(/SANI_/g, 'SANI_');
                 changed = true;
             }
 
             // Scoped packages
-            if (content.includes('@openclaw/')) {
-                content = content.replace(/@openclaw\//g, '@sani/');
+            if (content.includes('@sani/')) {
+                content = content.replace(/@sani\//g, '@sani/');
                 changed = true;
             }
 
             // Commands and lower case mentions
-            if (content.includes('openclaw')) {
-                content = content.replace(/openclaw/g, 'sani');
+            if (content.includes('sani')) {
+                content = content.replace(/sani/g, 'sani');
                 changed = true;
             }
 
             // Title case / Proper case mentions
-            if (content.includes('OpenClaw')) {
-                content = content.replace(/OpenClaw/g, 'SANI');
+            if (content.includes('SANI')) {
+                content = content.replace(/SANI/g, 'SANI');
                 changed = true;
             }
 

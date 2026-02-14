@@ -1,7 +1,7 @@
 {
   agents: {
     defaults: {
-      workspace: "~/.openclaw/workspace-sani",
+      workspace: "~/.sani/workspace-sani",
     },
     list: [
       {
@@ -9,19 +9,19 @@
         default: true,
         name: "SANI Core",
         persona: "core",
-        workspace: "~/.openclaw/workspace-sani",
+        workspace: "~/.sani/workspace-sani",
       },
       {
         id: "sani-work",
         name: "SANI Work",
         persona: "work",
-        workspace: "~/.openclaw/workspace-sani",
+        workspace: "~/.sani/workspace-sani",
       },
       {
         id: "sani-home",
         name: "SANI Home",
         persona: "home",
-        workspace: "~/.openclaw/workspace-sani",
+        workspace: "~/.sani/workspace-sani",
       },
     ],
   },

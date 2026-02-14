@@ -1,6 +1,6 @@
-import OpenClawKit
+import SANIKit
 import Testing
-@testable import OpenClaw
+@testable import SANI
 
 @Suite struct IOSGatewayChatTransportTests {
     @Test func requestsFailFastWhenGatewayNotConnected() async {
