@@ -5,6 +5,7 @@ import type {
 } from "../media-understanding/types.js";
 import type { StickerMetadata } from "../telegram/bot/types.js";
 import type { InternalMessageChannel } from "../utils/message-channel.js";
+import type { NormalizedMessageEnvelope } from "../vessels/types.js";
 import type { CommandArgs } from "./commands-registry.types.js";
 
 /** Valid message channels for routing. */
@@ -127,6 +128,8 @@ export type MsgContext = {
    * Used for hook confirmation messages like "Session context saved to memory".
    */
   HookMessages?: string[];
+  /** Normalized inbound envelope shared across vessels (whatsapp/cli/...). */
+  MessageEnvelope?: NormalizedMessageEnvelope;
 };
 
 export type FinalizedMsgContext = Omit<MsgContext, "CommandAuthorized"> & {

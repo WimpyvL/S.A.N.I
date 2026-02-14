@@ -13,6 +13,18 @@ import { enableConsoleCapture } from "../logging.js";
 import { getPrimaryCommand, hasHelpOrVersion } from "./argv.js";
 import { tryRouteCli } from "./route.js";
 
+export function getVesselArg(argv: string[]): string | null {
+  const direct = argv.find((arg) => arg.startsWith("--vessel="));
+  if (direct) {
+    return direct.slice("--vessel=".length);
+  }
+  const index = argv.indexOf("--vessel");
+  if (index === -1) {
+    return null;
+  }
+  return argv[index + 1] ?? null;
+}
+
 export function rewriteUpdateFlagArgv(argv: string[]): string[] {
   const index = argv.indexOf("--update");
   if (index === -1) {
@@ -32,6 +44,16 @@ export async function runCli(argv: string[] = process.argv) {
 
   // Enforce the minimum supported runtime before doing any work.
   assertSupportedRuntime();
+
+  const vessel = getVesselArg(normalizedArgv);
+  if (vessel) {
+    const { runVesselChat } = await import("./vessel-chat.js");
+    const handled = await runVesselChat(vessel);
+    if (!handled) {
+      throw new Error(`Unsupported vessel: ${vessel}`);
+    }
+    return;
+  }
 
   if (await tryRouteCli(normalizedArgv)) {
     return;

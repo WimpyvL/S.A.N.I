@@ -15,6 +15,33 @@ Last updated: 2025-12-09
 - Replaces the legacy `gateway` command. CLI entry point: `sani gateway`.
 - Runs until stopped; exits non-zero on fatal errors so the supervisor restarts it.
 
+## Supported vessels
+
+SANI uses a vessel adapter boundary for inbound/outbound messaging I/O.
+
+- `whatsapp` (default) — backed by the existing WhatsApp Web gateway path.
+- `cli` — stdin/stdout local vessel for terminal chat loops.
+
+Local CLI vessel example:
+
+```bash
+npm run sani -- --vessel=cli
+```
+
+Type messages at `you>` and SANI replies at `sani>`. Use `/exit` to stop.
+
+## Add a new vessel adapter
+
+Implement `VesselAdapter` in `src/vessels/types.ts` and wire it into CLI routing:
+
+1. Add an adapter under `src/vessels/<name>.ts` with:
+   - `onMessage(handler)` for inbound subscription.
+   - `sendMessage(...)` for outbound delivery.
+   - `getSessionKey(envelope)` and `getChannelMetadata(envelope)`.
+   - `capabilities` (`text`, `images`, `voice`).
+2. Emit a normalized message envelope (`NormalizedMessageEnvelope`) so plugin hooks see consistent metadata regardless of vessel.
+3. Register the new vessel selector in `src/cli/vessel-chat.ts`.
+
 ## How to run (local)
 
 ```bash
