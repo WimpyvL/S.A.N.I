@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rewriteUpdateFlagArgv } from "./run-main.js";
+import { getVesselArg, rewriteUpdateFlagArgv } from "./run-main.js";
 
 describe("rewriteUpdateFlagArgv", () => {
   it("leaves argv unchanged when --update is absent", () => {
@@ -32,5 +32,19 @@ describe("rewriteUpdateFlagArgv", () => {
       "update",
       "--json",
     ]);
+  });
+});
+
+describe("getVesselArg", () => {
+  it("returns null when --vessel is absent", () => {
+    expect(getVesselArg(["node", "entry.js", "status"])).toBeNull();
+  });
+
+  it("parses --vessel=value form", () => {
+    expect(getVesselArg(["node", "entry.js", "--vessel=cli"])).toBe("cli");
+  });
+
+  it("parses --vessel value form", () => {
+    expect(getVesselArg(["node", "entry.js", "--vessel", "web"])).toBe("web");
   });
 });

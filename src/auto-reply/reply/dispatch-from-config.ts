@@ -12,6 +12,7 @@ import {
   logSessionStateChange,
 } from "../../logging/diagnostic.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
+import { normalizeEnvelopeFromContext } from "../../vessels/envelope.js";
 import { maybeApplyTtsToPayload, normalizeTtsAutoMode, resolveTtsConfig } from "../../tts/tts.js";
 import { getReplyFromConfig } from "../reply.js";
 import { formatAbortReplyText, tryFastAbortFromMessage } from "./abort.js";
@@ -163,8 +164,9 @@ export async function dispatchReplyFromConfig(params: {
           : typeof ctx.Body === "string"
             ? ctx.Body
             : "";
-    const channelId = (ctx.OriginatingChannel ?? ctx.Surface ?? ctx.Provider ?? "").toLowerCase();
-    const conversationId = ctx.OriginatingTo ?? ctx.To ?? ctx.From ?? undefined;
+    const envelope = ctx.MessageEnvelope ?? normalizeEnvelopeFromContext(ctx);
+    const channelId = envelope.channel;
+    const conversationId = envelope.conversationId || undefined;
 
     void hookRunner
       .runMessageReceived(
@@ -173,6 +175,7 @@ export async function dispatchReplyFromConfig(params: {
           content,
           timestamp,
           metadata: {
+            envelope,
             to: ctx.To,
             provider: ctx.Provider,
             surface: ctx.Surface,

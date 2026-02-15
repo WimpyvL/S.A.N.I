@@ -33,6 +33,7 @@ import { formatError } from "../../session.js";
 import { deliverWebReply } from "../deliver-reply.js";
 import { whatsappInboundLog, whatsappOutboundLog } from "../loggers.js";
 import { elide } from "../util.js";
+import { toWhatsAppEnvelope } from "../../../vessels/whatsapp.js";
 import { maybeSendAckReaction } from "./ack-reaction.js";
 import { formatGroupMembers } from "./group-members.js";
 import { trackBackgroundTask, updateLastRouteInBackground } from "./last-route.js";
@@ -304,6 +305,10 @@ export async function processMessage(params: {
     Surface: "whatsapp",
     OriginatingChannel: "whatsapp",
     OriginatingTo: params.msg.from,
+    MessageEnvelope: toWhatsAppEnvelope({
+      message: params.msg,
+      sessionKey: params.route.sessionKey,
+    }),
   });
 
   if (dmRouteTarget) {
