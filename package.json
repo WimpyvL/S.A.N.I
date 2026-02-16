@@ -16,7 +16,8 @@
   "license": "MIT",
   "author": "",
   "bin": {
-    "sani": "sani.mjs"
+    "sani": "sani.mjs",
+    "openclaw": "openclaw.mjs"
   },
   "files": [
     "assets/",
@@ -25,7 +26,9 @@
     "docs/",
     "extensions/",
     "LICENSE",
+    "NOTICE",
     "sani.mjs",
+    "openclaw.mjs",
     "README-header.png",
     "README.md",
     "skills/"

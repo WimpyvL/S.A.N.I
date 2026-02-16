@@ -138,6 +138,8 @@ export const AgentDefaultsSchema = z
       .object({
         enabled: z.boolean().optional(),
         modeTtlMinutes: z.number().int().nonnegative().optional(),
+        snapshotRateLimitMinutes: z.number().int().nonnegative().optional(),
+        exitRateLimitMinutes: z.number().int().nonnegative().optional(),
         vaultSealingEnabled: z.boolean().optional(),
       })
       .strict()

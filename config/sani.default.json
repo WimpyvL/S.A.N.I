@@ -1,19 +1,55 @@
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.sani/workspace",
-      "sani": {
-        "enabled": true,
-        "modeTtlMinutes": 720
-      },
+      "workspace": "C:\\Users\\willi\\.sani\\workspace",
       "memorySearch": {
         "store": {
-          "path": "~/.sani/memory/{agentId}.sqlite"
+          "path": "C:\\Users\\willi\\.sani\\memory\\{agentId}.sqlite"
         }
+      },
+      "sani": {
+        "enabled": true,
+        "modeTtlMinutes": 720,
+        "snapshotRateLimitMinutes": 2,
+        "exitRateLimitMinutes": 1
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
       }
     }
   },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  },
   "session": {
     "store": "~/.sani/agents/{agentId}/sessions/sessions.json"
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "plugins": {
+    "entries": {
+      "whatsapp": {
+        "enabled": true
+      }
+    }
+  },
+  "gateway": {
+    "auth": {
+      "mode": "token",
+      "token": "c18460cc43a90b9f3eacc0964d044f336f6ddce8267297d3"
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-02-16T07:09:48.407Z",
+    "lastRunVersion": "2026.2.3",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.2.3",
+    "lastTouchedAt": "2026-02-16T07:09:48.450Z"
   }
 }

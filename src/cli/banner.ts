@@ -39,8 +39,8 @@ export function formatCliBannerLine(version: string, options: BannerOptions = {}
   const commitLabel = commit ?? "unknown";
   const tagline = pickTagline(options);
   const rich = options.richTty ?? isRich();
-  const title = "🦞 SANI";
-  const prefix = "🦞 ";
+  const title = "🐝 SANI";
+  const prefix = "🐝 ";
   const columns = options.columns ?? process.stdout.columns ?? 120;
   const plainFullLine = `${title} ${version} (${commitLabel}) — ${tagline}`;
   const fitsOnOneLine = visibleWidth(plainFullLine) <= columns;
@@ -66,11 +66,11 @@ export function formatCliBannerLine(version: string, options: BannerOptions = {}
 
 const LOBSTER_ASCII = [
   "▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄",
-  "██░▄▄▄░██░▄▄░██░▄▄▄██░▀██░██░▄▄▀██░████░▄▄▀██░███░██",
-  "██░███░██░▀▀░██░▄▄▄██░█░█░██░█████░████░▀▀░██░█░█░██",
-  "██░▀▀▀░██░█████░▀▀▀██░██▄░██░▀▀▄██░▀▀░█░██░██▄▀▄▀▄██",
+  "██▀▄▀██ █▀▀ ▀█▀ ▄▀▄ █▀▄ █▀▀ █▀▀                    █",
+  "██ ▀ ██ █▀▀  █  █▀█ █▀▄ █▀▀ █▀▀                    █",
+  "▀▀   ▀▀ ▀▀▀  ▀  ▀ ▀ ▀▀  ▀▀▀ ▀▀▀                    █",
   "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀",
-  "                  🦞 SANI 🦞                    ",
+  "                  🐝 SANI 🐝                    ",
   " ",
 ];
 
@@ -97,9 +97,9 @@ export function formatCliBannerArt(options: BannerOptions = {}): string {
     if (line.includes("SANI")) {
       return (
         theme.muted("              ") +
-        theme.accent("🦞") +
+        theme.accent("🐝") +
         theme.info(" SANI ") +
-        theme.accent("🦞")
+        theme.accent("🐝")
       );
     }
     return splitGraphemes(line).map(colorChar).join("");

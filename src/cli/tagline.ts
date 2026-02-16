@@ -6,7 +6,7 @@ const HOLIDAY_TAGLINES = {
   lunarNewYear:
     "Lunar New Year: May your builds be lucky, your branches prosperous, and your merge conflicts chased away with fireworks.",
   christmas:
-    "Christmas: Ho ho ho—Santa's little claw-sistant is here to ship joy, roll back chaos, and stash the keys safely.",
+    "Christmas: Ho ho ho—Santa's little bee-sistant is here to ship joy, roll back chaos, and stash the keys safely.",
   eid: "Eid al-Fitr: Celebration mode: queues cleared, tasks completed, and good vibes committed to main with clean history.",
   diwali:
     "Diwali: Let the logs sparkle and the bugs flee—today we light up the terminal and ship with pride.",
@@ -23,7 +23,7 @@ const HOLIDAY_TAGLINES = {
 } as const;
 
 const TAGLINES: string[] = [
-  "Your terminal just grew claws—type something and let the bot pinch the busywork.",
+  "Your terminal just grew wings—type something and let the bot buzz the busywork.",
   "Welcome to the command line: where dreams compile and confidence segfaults.",
   'I run on caffeine, JSON5, and the audacity of "it worked on my machine."',
   "Gateway online—please keep hands, feet, and appendages inside the shell at all times.",
@@ -40,7 +40,7 @@ const TAGLINES: string[] = [
   "Hot reload for config, cold sweat for deploys.",
   "I'm the assistant your terminal demanded, not the one your sleep schedule requested.",
   "I keep secrets like a vault... unless you print them in debug logs again.",
-  "Automation with claws: minimal fuss, maximal pinch.",
+  "Automation with wings: minimal fuss, maximal buzz.",
   "I'm basically a Swiss Army knife, but with more opinions and fewer sharp edges.",
   "If you're lost, run doctor; if you're brave, run prod; if you're wise, run tests.",
   "Your task has been queued; your dignity has been deprecated.",
@@ -59,14 +59,14 @@ const TAGLINES: string[] = [
   "Your config is valid, your assumptions are not.",
   "I don't just autocomplete—I auto-commit (emotionally), then ask you to review (logically).",
   'Less clicking, more shipping, fewer "where did that file go" moments.',
-  "Claws out, commit in—let's ship something mildly responsible.",
-  "I'll butter your workflow like a lobster roll: messy, delicious, effective.",
-  "Shell yeah—I'm here to pinch the toil and leave you the glory.",
+  "Stingers out, commit in—let's ship something mildly responsible.",
+  "I'll sweeten your workflow like honey: sticky, delicious, effective.",
+  "Shell yeah—I'm here to sting the toil and leave you the glory.",
   "If it's repetitive, I'll automate it; if it's hard, I'll bring jokes and a rollback plan.",
   "Because texting yourself reminders is so 2024.",
   "Your inbox, your infra, your rules.",
   'Turning "I\'ll reply later" into "my bot replied instantly".',
-  "The only crab in your contacts you actually want to hear from. 🦞",
+  "The only bee in your contacts you actually want to hear from. 🐝",
   "Chat automation for people who peaked at IRC.",
   "Because Siri wasn't answering at 3AM.",
   "IPC, but it's your phone.",
@@ -117,24 +117,24 @@ function utcParts(date: Date) {
 
 const onMonthDay =
   (month: number, day: number): HolidayRule =>
-  (date) => {
-    const parts = utcParts(date);
-    return parts.month === month && parts.day === day;
-  };
+    (date) => {
+      const parts = utcParts(date);
+      return parts.month === month && parts.day === day;
+    };
 
 const onSpecificDates =
   (dates: Array<[number, number, number]>, durationDays = 1): HolidayRule =>
-  (date) => {
-    const parts = utcParts(date);
-    return dates.some(([year, month, day]) => {
-      if (parts.year !== year) {
-        return false;
-      }
-      const start = Date.UTC(year, month, day);
-      const current = Date.UTC(parts.year, parts.month, parts.day);
-      return current >= start && current < start + durationDays * DAY_MS;
-    });
-  };
+    (date) => {
+      const parts = utcParts(date);
+      return dates.some(([year, month, day]) => {
+        if (parts.year !== year) {
+          return false;
+        }
+        const start = Date.UTC(year, month, day);
+        const current = Date.UTC(parts.year, parts.month, parts.day);
+        return current >= start && current < start + durationDays * DAY_MS;
+      });
+    };
 
 const inYearWindow =
   (
@@ -145,16 +145,16 @@ const inYearWindow =
       duration: number;
     }>,
   ): HolidayRule =>
-  (date) => {
-    const parts = utcParts(date);
-    const window = windows.find((entry) => entry.year === parts.year);
-    if (!window) {
-      return false;
-    }
-    const start = Date.UTC(window.year, window.month, window.day);
-    const current = Date.UTC(parts.year, parts.month, parts.day);
-    return current >= start && current < start + window.duration * DAY_MS;
-  };
+    (date) => {
+      const parts = utcParts(date);
+      const window = windows.find((entry) => entry.year === parts.year);
+      if (!window) {
+        return false;
+      }
+      const start = Date.UTC(window.year, window.month, window.day);
+      const current = Date.UTC(parts.year, parts.month, parts.day);
+      return current >= start && current < start + window.duration * DAY_MS;
+    };
 
 const isFourthThursdayOfNovember: HolidayRule = (date) => {
   const parts = utcParts(date);

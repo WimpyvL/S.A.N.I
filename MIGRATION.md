@@ -11,7 +11,7 @@ This release completes the product rename to **S.A.N.I** (Sovereign Autonomous N
 
 ## Command changes
 
-- Old: `openclaw <command> ...`
+- Old: `openclaw <command> ...` (now a deprecated alias)
 - New: `sani <command> ...`
 
 Examples:

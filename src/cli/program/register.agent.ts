@@ -155,7 +155,7 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/agent", "loop69.co.za/sani/cli/ag
         `
 ${theme.heading("Examples:")}
 ${formatHelpExamples([
-          ['sani agents set-identity --agent main --name "SANI" --emoji "🦞"', "Set name + emoji."],
+          ['sani agents set-identity --agent main --name "SANI" --emoji "🐝"', "Set name + emoji."],
           ["sani agents set-identity --agent main --avatar avatars/sani.png", "Set avatar path."],
           [
             "sani agents set-identity --workspace ~/.sani/workspace --from-identity",

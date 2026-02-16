@@ -16,7 +16,7 @@ export function resolveIsNixMode(env: NodeJS.ProcessEnv = process.env): boolean 
 
 export const isNixMode = resolveIsNixMode();
 
-const LEGACY_STATE_DIRNAMES = [".sani", ".clawdbot", ".moltbot", ".moldbot"] as const;
+const LEGACY_STATE_DIRNAMES = [".sani", ".clawdbot", ".moltbot", ".moldbot", ".openclaw"] as const;
 const NEW_STATE_DIRNAME = ".sani";
 const CONFIG_FILENAME = "sani.json";
 const LEGACY_CONFIG_FILENAMES = ["sani.json", "clawdbot.json", "moltbot.json", "moldbot.json"] as const;
