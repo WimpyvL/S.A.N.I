@@ -4,22 +4,22 @@ import path from "node:path";
 import type { SANIConfig } from "./types.js";
 
 /**
- * Nix mode detection: When SANI_NIX_MODE=1 or SANI_NIX_MODE=1, the gateway is running under Nix.
+ * Nix mode detection: When SANI_NIX_MODE is set to "1", the gateway is running under Nix.
  * In this mode:
  * - No auto-install flows should be attempted
  * - Missing dependencies should produce actionable Nix-specific error messages
  * - Config is managed externally (read-only from Nix perspective)
  */
 export function resolveIsNixMode(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.SANI_NIX_MODE === "1" || env.SANI_NIX_MODE === "1";
+  return env.SANI_NIX_MODE === "1";
 }
 
 export const isNixMode = resolveIsNixMode();
 
-const LEGACY_STATE_DIRNAMES = [".sani", ".clawdbot", ".moltbot", ".moldbot", ".openclaw"] as const;
+const LEGACY_STATE_DIRNAMES = [".clawdbot", ".moltbot", ".moldbot"] as const;
 const NEW_STATE_DIRNAME = ".sani";
 const CONFIG_FILENAME = "sani.json";
-const LEGACY_CONFIG_FILENAMES = ["sani.json", "clawdbot.json", "moltbot.json", "moldbot.json"] as const;
+const LEGACY_CONFIG_FILENAMES = ["clawdbot.json", "moltbot.json", "moldbot.json"] as const;
 
 function legacyStateDirs(homedir: () => string = os.homedir): string[] {
   return LEGACY_STATE_DIRNAMES.map((dir) => path.join(homedir(), dir));
@@ -43,17 +43,14 @@ export function resolveNewStateDir(homedir: () => string = os.homedir): string {
 
 /**
  * State directory for mutable data (sessions, logs, caches).
- * Can be overridden via SANI_STATE_DIR or SANI_STATE_DIR.
+ * Can be overridden via SANI_STATE_DIR.
  * Default: ~/.sani
  */
 export function resolveStateDir(
   env: NodeJS.ProcessEnv = process.env,
   homedir: () => string = os.homedir,
 ): string {
-  const override =
-    env.SANI_STATE_DIR?.trim() ||
-    env.SANI_STATE_DIR?.trim() ||
-    env.CLAWDBOT_STATE_DIR?.trim();
+  const override = env.SANI_STATE_DIR?.trim();
   if (override) {
     return resolveUserPath(override);
   }
@@ -92,17 +89,14 @@ export const STATE_DIR = resolveStateDir();
 
 /**
  * Config file path (JSON5).
- * Can be overridden via SANI_CONFIG_PATH or SANI_CONFIG_PATH.
+ * Can be overridden via SANI_CONFIG_PATH.
  * Default: ~/.sani/sani.json (or $SANI_STATE_DIR/sani.json)
  */
 export function resolveCanonicalConfigPath(
   env: NodeJS.ProcessEnv = process.env,
   stateDir: string = resolveStateDir(env, os.homedir),
 ): string {
-  const override =
-    env.SANI_CONFIG_PATH?.trim() ||
-    env.SANI_CONFIG_PATH?.trim() ||
-    env.CLAWDBOT_CONFIG_PATH?.trim();
+  const override = env.SANI_CONFIG_PATH?.trim();
   if (override) {
     return resolveUserPath(override);
   }
@@ -139,11 +133,11 @@ export function resolveConfigPath(
   stateDir: string = resolveStateDir(env, os.homedir),
   homedir: () => string = os.homedir,
 ): string {
-  const override = env.SANI_CONFIG_PATH?.trim() || env.SANI_CONFIG_PATH?.trim();
+  const override = env.SANI_CONFIG_PATH?.trim();
   if (override) {
     return resolveUserPath(override);
   }
-  const stateOverride = env.SANI_STATE_DIR?.trim() || env.SANI_STATE_DIR?.trim();
+  const stateOverride = env.SANI_STATE_DIR?.trim();
   const candidates = [
     path.join(stateDir, CONFIG_FILENAME),
     ...LEGACY_CONFIG_FILENAMES.map((name) => path.join(stateDir, name)),
@@ -178,17 +172,13 @@ export function resolveDefaultConfigCandidates(
   env: NodeJS.ProcessEnv = process.env,
   homedir: () => string = os.homedir,
 ): string[] {
-  const explicit =
-    env.SANI_CONFIG_PATH?.trim() ||
-    env.SANI_CONFIG_PATH?.trim() ||
-    env.CLAWDBOT_CONFIG_PATH?.trim();
+  const explicit = env.SANI_CONFIG_PATH?.trim();
   if (explicit) {
     return [resolveUserPath(explicit)];
   }
 
   const candidates: string[] = [];
-  const saniStateDir =
-    env.SANI_STATE_DIR?.trim() || env.SANI_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
+  const saniStateDir = env.SANI_STATE_DIR?.trim();
   if (saniStateDir) {
     const resolved = resolveUserPath(saniStateDir);
     candidates.push(path.join(resolved, CONFIG_FILENAME));
@@ -222,14 +212,14 @@ const OAUTH_FILENAME = "oauth.json";
  * OAuth credentials storage directory.
  *
  * Precedence:
- * - `SANI_OAUTH_DIR` or `SANI_OAUTH_DIR` (explicit override)
- * - `$*_STATE_DIR/credentials` (canonical server/default)
+ * - `SANI_OAUTH_DIR` (explicit override)
+ * - `$SANI_STATE_DIR/credentials` (canonical server/default)
  */
 export function resolveOAuthDir(
   env: NodeJS.ProcessEnv = process.env,
   stateDir: string = resolveStateDir(env, os.homedir),
 ): string {
-  const override = env.SANI_OAUTH_DIR?.trim() || env.SANI_OAUTH_DIR?.trim();
+  const override = env.SANI_OAUTH_DIR?.trim();
   if (override) {
     return resolveUserPath(override);
   }
@@ -247,10 +237,7 @@ export function resolveGatewayPort(
   cfg?: SANIConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): number {
-  const envRaw =
-    env.SANI_GATEWAY_PORT?.trim() ||
-    env.SANI_GATEWAY_PORT?.trim() ||
-    env.CLAWDBOT_GATEWAY_PORT?.trim();
+  const envRaw = env.SANI_GATEWAY_PORT?.trim();
   if (envRaw) {
     const parsed = Number.parseInt(envRaw, 10);
     if (Number.isFinite(parsed) && parsed > 0) {

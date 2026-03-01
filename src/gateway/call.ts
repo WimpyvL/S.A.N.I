@@ -161,7 +161,6 @@ export async function callGateway<T = Record<string, unknown>>(
         ? remote.token.trim()
         : undefined
       : process.env.SANI_GATEWAY_TOKEN?.trim() ||
-        process.env.CLAWDBOT_GATEWAY_TOKEN?.trim() ||
         (typeof authToken === "string" && authToken.trim().length > 0
           ? authToken.trim()
           : undefined));
@@ -170,7 +169,6 @@ export async function callGateway<T = Record<string, unknown>>(
       ? opts.password.trim()
       : undefined) ||
     process.env.SANI_GATEWAY_PASSWORD?.trim() ||
-    process.env.CLAWDBOT_GATEWAY_PASSWORD?.trim() ||
     (isRemoteMode
       ? typeof remote?.password === "string" && remote.password.trim().length > 0
         ? remote.password.trim()

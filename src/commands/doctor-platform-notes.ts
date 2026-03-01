@@ -91,10 +91,8 @@ export async function noteMacLaunchctlGatewayEnvOverrides(
 
   const tokenEntries = [
     ["SANI_GATEWAY_TOKEN", await getenv("SANI_GATEWAY_TOKEN")],
-    ["SANI_GATEWAY_TOKEN", await getenv("SANI_GATEWAY_TOKEN")],
   ] as const;
   const passwordEntries = [
-    ["SANI_GATEWAY_PASSWORD", await getenv("SANI_GATEWAY_PASSWORD")],
     ["SANI_GATEWAY_PASSWORD", await getenv("SANI_GATEWAY_PASSWORD")],
   ] as const;
   const tokenEntry = tokenEntries.find(([, value]) => value?.trim());
