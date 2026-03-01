@@ -557,7 +557,7 @@ let configCache: {
 } | null = null;
 
 function resolveConfigCacheMs(env: NodeJS.ProcessEnv): number {
-  const raw = (env.SANI_CONFIG_CACHE_MS?.trim() || env.SANI_CONFIG_CACHE_MS?.trim());
+  const raw = env.SANI_CONFIG_CACHE_MS?.trim();
   if (raw === "" || raw === "0") {
     return 0;
   }
